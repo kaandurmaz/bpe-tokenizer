@@ -2,6 +2,8 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
+
 
 def _get_log_path() -> Path:
     n = 1
@@ -106,6 +108,21 @@ def encode(text: str, merges: list[tuple[str, str]]) -> list[str]:
     return tokens
 
 
+def build_token_to_id(vocab: set[str]) -> dict[str, int]:
+    """Assign a stable integer id to each token (sorted for determinism)."""
+    return {tok: i for i, tok in enumerate(sorted(vocab))}
+
+
+def encode_to_ids(
+    text: str,
+    merges: list[tuple[str, str]],
+    token_to_id: dict[str, int],
+) -> list[int]:
+    """Return integer token ids for the given text."""
+    tokens = encode(text, merges)
+    return [token_to_id[t] for t in tokens if t in token_to_id]
+
+
 if __name__ == "__main__":
     corpus_path = "corpus.txt"
 
@@ -125,3 +142,16 @@ if __name__ == "__main__":
     for sentence in test_sentences:
         tokens = encode(sentence, merges)
         log.info(f"  '{sentence}' => {tokens}")
+
+    # --- Encode full corpus and save as train.bin ---
+    log.info("\n--- Encoding full corpus ---")
+    token_to_id = build_token_to_id(final_vocab)
+    ids = encode_to_ids(corpus, merges, token_to_id)
+
+    arr = np.array(ids, dtype=np.uint16)
+    out_path = Path("train.bin")
+    arr.tofile(out_path)
+
+    log.info(f"  Tokens : {len(ids):,}")
+    log.info(f"  Vocab  : {len(token_to_id):,} unique tokens")
+    log.info(f"  Saved  : {out_path} ({out_path.stat().st_size:,} bytes, dtype=uint16)")
