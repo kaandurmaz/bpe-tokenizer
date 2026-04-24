@@ -95,16 +95,23 @@ def train_bpe(corpus: str, vocab_size: int) -> tuple[list[tuple[str, str]], set[
 
 def encode(text: str, merges: list[tuple[str, str]]) -> list[str]:
     """Tokenize text using the learned merge rules."""
-    words = [" ".join(list(w)) + " </w>" for w in text.split()]
+    word_list = text.split()
+    unique_words = sorted(set(word_list))
+    total = len(unique_words)
 
-    for pair in merges:
-        bigram = " ".join(pair)
-        merged = "".join(pair)
-        words = [w.replace(bigram, merged) for w in words]
+    cache: dict[str, list[str]] = {}
+    for i, word in enumerate(unique_words, 1):
+        tokenized = " ".join(list(word)) + " </w>"
+        for pair in merges:
+            tokenized = tokenized.replace(" ".join(pair), "".join(pair))
+        cache[word] = tokenized.split()
+
+        if i % max(1, total // 20) == 0 or i == total:
+            log.info(f"  Encoding unique words: {i}/{total} ({100*i//total}%)")
 
     tokens: list[str] = []
-    for word in words:
-        tokens.extend(word.split())
+    for word in word_list:
+        tokens.extend(cache[word])
     return tokens
 
 
